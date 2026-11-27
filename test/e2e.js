@@ -154,6 +154,10 @@ function check(ok, msg) {
     check(amd.define === 'function' && amd.amd, "page's AMD loader left intact");
     check(amd.modules === 0, 'JSZip not registered with the AMD loader');
     check(e.content.includes('[Stalled image]'), 'image that never loads is skipped after a timeout');
+    check(/<ul>\s*<li>Loose item one<\/li>\s*<li>Loose item two<\/li>\s*<\/ul>/.test(e.content), 'loose list items wrapped in a list');
+    check(/<ul>\s*<li>Menu item one<\/li>\s*<li>Menu item two<\/li>\s*<\/ul>/.test(e.content), 'menu becomes a list');
+    check(/<dl>\s*<dt>Term<\/dt>\s*<dd>Definition<\/dd>\s*<\/dl>/.test(e.content), 'orphaned definitions wrapped in a list');
+    check(e.content.includes('<p>Summary text</p>') && e.content.includes('<p>Orphaned caption</p>'), 'summary and orphaned caption become paragraphs');
     epubs.push(e.file);
 
     if (process.env.EPUBCHECK) {

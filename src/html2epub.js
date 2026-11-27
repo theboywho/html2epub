@@ -33,6 +33,8 @@
     'script style noscript iframe frame frameset object embed applet form input button select ' +
     'option textarea video audio canvas template link meta svg math source track map area dialog'
   );
+  // Elements converted to a supported equivalent before the rules above apply.
+  var RENAME_ELEMENTS = { menu: 'ul', dir: 'ul', details: 'div', summary: 'p' };
   // Attributes kept per element ('*' = every element); everything else is removed.
   var KEEP_ATTRS = {
     '*': ['id', 'title', 'lang', 'dir'],
@@ -253,6 +255,10 @@
         el.remove();
         return;
       }
+      if (RENAME_ELEMENTS[name]) {
+        el = renameElement(el, RENAME_ELEMENTS[name]);
+        name = el.localName;
+      }
       if (!KEEP_ELEMENTS.has(name)) {
         el.replaceWith.apply(el, Array.prototype.slice.call(el.childNodes));
         return;
@@ -277,6 +283,60 @@
       }
       if (name === 'ol' && el.hasAttribute('reversed')) el.setAttribute('reversed', 'reversed');
     });
+    repairStructure(root);
+  }
+
+  // Unwrapping can leave elements outside the parent they require (e.g. <li> from a
+  // <custom-list>), which is invalid XHTML. Put them back in a valid structure.
+  function repairStructure(root) {
+    Array.prototype.slice.call(root.querySelectorAll('li, dt, dd, figcaption, caption, tr, td, th, thead, tbody, tfoot, colgroup, col')).forEach(function (el) {
+      if (!root.contains(el)) return;
+      var name = el.localName;
+      var parent = el.parentElement;
+      var p = parent ? parent.localName : '';
+      if (name === 'li' && p !== 'ul' && p !== 'ol') {
+        wrapRun(el, 'ul', ['li']);
+      } else if ((name === 'dt' || name === 'dd') && p !== 'dl' && !(p === 'div' && parent.parentElement && parent.parentElement.localName === 'dl')) {
+        wrapRun(el, 'dl', ['dt', 'dd']);
+      } else if ((name === 'figcaption' && p !== 'figure') || (name === 'caption' && p !== 'table') ||
+                 ((name === 'td' || name === 'th') && p !== 'tr')) {
+        renameElement(el, p === 'p' ? 'span' : 'p');
+      } else if (name === 'tr' && !/^(table|thead|tbody|tfoot)$/.test(p)) {
+        el.replaceWith.apply(el, Array.prototype.slice.call(el.childNodes));
+      } else if (/^(thead|tbody|tfoot|colgroup)$/.test(name) && p !== 'table') {
+        el.replaceWith.apply(el, Array.prototype.slice.call(el.childNodes));
+      } else if (name === 'col' && p !== 'colgroup' && p !== 'table') {
+        el.remove();
+      }
+    });
+  }
+
+  // Wrap el and its following sibling elements of the given names in a new container.
+  function wrapRun(el, containerName, names) {
+    var parent = el.parentElement;
+    // A list can't sit inside a paragraph; make the paragraph a div.
+    if (parent && parent.localName === 'p') renameElement(parent, 'div');
+    var container = el.ownerDocument.createElementNS(XHTML_NS, containerName);
+    el.before(container);
+    var node = el;
+    while (node) {
+      var next = node.nextSibling;
+      if (node.nodeType === Node.ELEMENT_NODE && names.indexOf(node.localName) !== -1) container.appendChild(node);
+      else if (node.nodeType === Node.TEXT_NODE && !node.data.trim() && next && next.nodeType === Node.ELEMENT_NODE && names.indexOf(next.localName) !== -1) container.appendChild(node);
+      else break;
+      node = next;
+    }
+  }
+
+  // Replace el with a new element called name, keeping its children and attributes.
+  function renameElement(el, name) {
+    var replacement = el.ownerDocument.createElementNS(XHTML_NS, name);
+    Array.prototype.slice.call(el.attributes).forEach(function (attr) {
+      if (!attr.namespaceURI) replacement.setAttribute(attr.name, attr.value);
+    });
+    while (el.firstChild) replacement.appendChild(el.firstChild);
+    el.replaceWith(replacement);
+    return replacement;
   }
 
   function validAttr(name, value) {
