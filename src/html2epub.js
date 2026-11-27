@@ -260,6 +260,9 @@
       Array.prototype.slice.call(el.attributes).forEach(function (attr) {
         if (allowed.indexOf(attr.name) === -1 || attr.namespaceURI || !validAttr(attr.name, attr.value)) {
           el.removeAttribute(attr.name);
+        } else {
+          var clean = stripXmlIllegal(attr.value);
+          if (clean !== attr.value) el.setAttribute(attr.name, clean);
         }
       });
       if (el.hasAttribute('id')) {

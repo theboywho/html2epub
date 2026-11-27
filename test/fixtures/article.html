@@ -16,14 +16,14 @@
       <h1>The Quiet Art of Reading Long Articles</h1>
       <p class="byline">By Ada Example</p>
       <p>Reading long articles on a screen is tiring. Many people prefer to move what they want to read to a device built for reading, where there are no notifications, no adverts and no autoplaying videos competing for attention. This fixture exists to test that the converter keeps the article and leaves the rest of the page behind.</p>
-      <p>The paragraph you are reading includes <a href="#notes">a link to the notes section</a>, <a href="#missing-anchor">a link to a missing anchor</a>, <a href="other-page.html">a relative link</a>, <a href="javascript:alert(1)">a javascript link</a>, and <a href="https://example.com/" onclick="alert(1)" data-tracking="xyz" jsaction="click">an absolute link with junk attributes</a>. It also contains a control character here:&#x1;end.</p>
+      <p>The paragraph you are reading includes <a href="#notes">a link to the notes section</a>, <a href="#missing-anchor">a link to a missing anchor</a>, <a href="other-page.html">a relative link</a>, <a href="javascript:alert(1)">a javascript link</a>, and <a href="https://example.com/" onclick="alert(1)" data-tracking="xyz" jsaction="click">an absolute link with junk attributes</a>. It also contains a control character here:&#x1;end, and in an attribute: <abbr title="Hyper&#xB;Text Markup Language">HTML</abbr>.</p>
       <figure>
         <img src="photo.jpg" alt="A blue ellipse" width="320" height="200" loading="lazy">
         <figcaption>A JPEG image, embedded as-is.</figcaption>
       </figure>
       <h2>Images in different formats</h2>
       <p>Some sites serve modern image formats. The converter should embed JPEG, PNG and GIF images directly, and convert other formats such as WebP and SVG so that more readers can display them. Images that cannot be downloaded should be left out rather than breaking the book.</p>
-      <p><img src="diagram.png" alt="A red rectangle"></p>
+      <p><img src="diagram.png" alt="A red&#x7; rectangle"></p>
       <picture>
         <source srcset="chart.webp" type="image/webp">
         <img src="chart.webp" alt="A green chart">
