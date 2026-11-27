@@ -20,6 +20,19 @@ Rules for AI coding agents (and humans) working in this repository.
 - Output must be a valid EPUB (check with [EPUBCheck](https://github.com/w3c/epubcheck)
   where possible).
 
+### Layout
+
+- `index.html` – install page (served at the GitHub Pages root); builds the bookmarklet.
+- `src/html2epub.js` – the converter, loaded by the bookmarklet.
+- `vendor/` – vendored libraries; see `vendor/README.md` for versions and licences.
+- `test/` – end-to-end test (`node test/e2e.js`) and fixtures.
+- `.nojekyll` – serve files as-is (no Jekyll processing).
+
+### Testing
+
+- Run `node test/e2e.js` before opening a PR; set `EPUBCHECK` to also run EPUBCheck
+  (see `README.md`). Add a fixture case for new behaviour or fixed bugs.
+
 ## Workflow
 
 1. **Always work in a branch.** Never commit directly to `main`.

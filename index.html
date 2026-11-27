@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>html2epub</title>
+  <style>
+    :root { --bg: #fff; --fg: #1a1a1a; --muted: #555; --accent: #1f5fbf; --code: #f2f2f2; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #161616; --fg: #e8e8e8; --muted: #aaa; --accent: #7fb0ff; --code: #262626; }
+    }
+    body { background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 16px; }
+    h1 { margin-bottom: 0.2rem; }
+    .tagline { color: var(--muted); margin-top: 0; }
+    .bookmarklet { display: inline-block; padding: 0.6rem 1.1rem; border-radius: 6px; background: var(--accent); color: var(--bg); font-weight: 600; text-decoration: none; cursor: grab; }
+    code, textarea { font-family: ui-monospace, monospace; font-size: 0.85em; }
+    textarea { width: 100%; box-sizing: border-box; height: 7rem; background: var(--code); color: var(--fg); border: 1px solid var(--muted); border-radius: 4px; padding: 0.5rem; }
+    li { margin-bottom: 0.4rem; }
+  </style>
+</head>
+<body>
+  <h1>html2epub</h1>
+  <p class="tagline">Save the article on any web page as an EPUB, e.g. for your reMarkable.</p>
+
+  <h2>Install</h2>
+  <p>Drag this button to your bookmarks bar:</p>
+  <p><a class="bookmarklet" id="bookmarklet" href="#">Save as EPUB</a></p>
+  <p>Or create a bookmark by hand and paste this as its URL:</p>
+  <textarea id="code" readonly aria-label="Bookmarklet code"></textarea>
+
+  <h2>Use</h2>
+  <ol>
+    <li>Open an article.</li>
+    <li>Click <strong>Save as EPUB</strong> in your bookmarks.</li>
+    <li>The EPUB downloads. Images are embedded when the site allows them to be downloaded.</li>
+  </ol>
+
+  <h2>Limitations</h2>
+  <ul>
+    <li>Some sites block scripts from other sites (Content-Security-Policy). The bookmarklet can't run there.</li>
+    <li>Images the browser isn't allowed to fetch (cross-origin without CORS) are left out.</li>
+  </ul>
+
+  <p>Everything runs in your browser; nothing is uploaded. Source: <a href="https://github.com/theboywho/html2epub">github.com/theboywho/html2epub</a>.</p>
+
+  <script>
+    // Build the bookmarklet from this page's own location so forks and local copies work too.
+    var src = new URL('src/html2epub.js', location.href).href;
+    var code = "javascript:(function(){var d=document,s=d.createElement('script');" +
+      "s.src='" + src + "?t='+Date.now();" +
+      "s.onload=function(){s.remove()};" +
+      "s.onerror=function(){s.remove();alert('html2epub: could not load the converter. This site may block external scripts.')};" +
+      "(d.head||d.documentElement).appendChild(s)})();";
+    document.getElementById('bookmarklet').href = code;
+    document.getElementById('code').value = code;
+    document.getElementById('bookmarklet').addEventListener('click', function (e) {
+      e.preventDefault();
+      alert('Drag this button to your bookmarks bar instead of clicking it.');
+    });
+  </script>
+</body>
+</html>
