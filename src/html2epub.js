@@ -394,10 +394,13 @@
     root.querySelectorAll('[id]').forEach(function (el) { ids.add(el.id); });
     var page = location.href.split('#')[0];
     root.querySelectorAll('a[href]').forEach(function (a) {
+      var href = a.getAttribute('href');
       var url;
-      try { url = new URL(a.getAttribute('href'), location.href); } catch (e) { a.removeAttribute('href'); return; }
-      if (url.hash && url.href.split('#')[0] === page) {
-        var target = safeDecode(url.hash.slice(1));
+      try { url = new URL(href, document.baseURI); } catch (e) { a.removeAttribute('href'); return; }
+      // A bare '#id' (which a <base href> would otherwise point elsewhere) or a link back
+      // to this page: keep it internal if the target is in the article.
+      if (href.charAt(0) === '#' || (url.hash && url.href.split('#')[0] === page)) {
+        var target = safeDecode(href.charAt(0) === '#' ? href.slice(1) : url.hash.slice(1));
         if (ids.has(target)) { a.setAttribute('href', fragment(target)); return; }
       }
       if (/^(https?|mailto):$/.test(url.protocol)) a.setAttribute('href', url.href);
@@ -431,7 +434,7 @@
     await pool(imgs, 6, async function (img) {
       var src = img.getAttribute('src');
       var url;
-      try { url = new URL(src, location.href).href; } catch (e) { url = null; }
+      try { url = new URL(src, document.baseURI).href; } catch (e) { url = null; }
       var file = url ? await load(url) : null;
       if (file) {
         img.setAttribute('src', file.href);
