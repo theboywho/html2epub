@@ -46,10 +46,11 @@
   <script>
     // Build the bookmarklet from this page's own location so forks and local copies work too.
     var src = new URL('src/html2epub.js', location.href).href;
-    var code = "javascript:(function(){var s=document.createElement('script');" +
+    var code = "javascript:(function(){var d=document,s=d.createElement('script');" +
       "s.src='" + src + "?t='+Date.now();" +
-      "s.onerror=function(){alert('html2epub: could not load the converter. This site may block external scripts.')};" +
-      "document.body.appendChild(s)})();";
+      "s.onload=function(){s.remove()};" +
+      "s.onerror=function(){s.remove();alert('html2epub: could not load the converter. This site may block external scripts.')};" +
+      "(d.head||d.documentElement).appendChild(s)})();";
     document.getElementById('bookmarklet').href = code;
     document.getElementById('code').value = code;
     document.getElementById('bookmarklet').addEventListener('click', function (e) {

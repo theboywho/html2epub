@@ -61,6 +61,7 @@ async function convert(page, code, url) {
     // undefined, so count only new globals that still hold a value.
     const added = Object.keys(window).filter((k) => before.indexOf(k) === -1 && window[k] !== undefined);
     if (window.__messageListeners) added.push(window.__messageListeners + " 'message' listener(s)");
+    document.querySelectorAll('script[src*="html2epub"], script[src*="vendor/"]').forEach((el) => added.push('<script src=' + el.getAttribute('src') + '>'));
     return added;
   }, before);
   const buf = fs.readFileSync(file);
@@ -110,6 +111,8 @@ function check(ok, msg) {
     const code = await page.$eval('#bookmarklet', (a) => a.getAttribute('href'));
     check(code.startsWith('javascript:'), 'bookmarklet is a javascript: URL');
     check(code.includes(site.origin + '/src/html2epub.js'), 'bookmarklet points at this site');
+    const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+    check(readme.includes(code.split(site.origin + '/').join('https://theboywho.github.io/html2epub/')), 'README bookmarklet matches the install page');
 
     console.log('Fixture: article.html');
     const a = await convert(page, code, site.origin + '/test/fixtures/article.html');

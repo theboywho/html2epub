@@ -10,7 +10,7 @@ Open the install page and drag **Save as EPUB** to your bookmarks bar:
 Or create a bookmark by hand with this URL:
 
 ```text
-javascript:(function(){var s=document.createElement('script');s.src='https://theboywho.github.io/html2epub/src/html2epub.js?t='+Date.now();s.onerror=function(){alert('html2epub: could not load the converter. This site may block external scripts.')};document.body.appendChild(s)})();
+javascript:(function(){var d=document,s=d.createElement('script');s.src='https://theboywho.github.io/html2epub/src/html2epub.js?t='+Date.now();s.onload=function(){s.remove()};s.onerror=function(){s.remove();alert('html2epub: could not load the converter. This site may block external scripts.')};(d.head||d.documentElement).appendChild(s)})();
 ```
 
 ## How it works
