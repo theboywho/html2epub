@@ -159,6 +159,9 @@ function check(ok, msg) {
     check(amd.modules === 0, 'JSZip not registered with the AMD loader');
     check(e.content.includes('[Stalled image]'), 'image that never loads is skipped after a timeout');
     check(/src="images\/img-\d+\.jpg"/.test((e.content.match(/<img[^>]*alt="Lazy image"[^>]*>/) || [''])[0]), 'lazy image resolved against <base href>');
+    check(e.content.includes('The mean is \\bar{x} = \\frac{1}{n}\\sum x_i for') && e.content.includes('variance is \\sigma^2 in'), 'MathML replaced by its TeX/alt text');
+    check(!e.content.includes('HIDDEN-FORMULA') && !e.content.includes('<svg') && !e.content.includes('<math'), 'hidden formulas and decorative SVG removed');
+    check(e.content.includes('[Sales by month]'), 'labelled SVG replaced by its label');
     check(/<ul>\s*<li>Loose item one<\/li>\s*<li>Loose item two<\/li>\s*<\/ul>/.test(e.content), 'loose list items wrapped in a list');
     check(/<ul>\s*<li>Menu item one<\/li>\s*<li>Menu item two<\/li>\s*<\/ul>/.test(e.content), 'menu becomes a list');
     check(/<dl>\s*<dt>Term<\/dt>\s*<dd>Definition<\/dd>\s*<\/dl>/.test(e.content), 'orphaned definitions wrapped in a list');

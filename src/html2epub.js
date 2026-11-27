@@ -272,6 +272,13 @@
     Array.prototype.slice.call(root.querySelectorAll('*')).forEach(function (el) {
       if (!root.contains(el)) return; // inside something already removed
       var name = el.localName;
+      if (name === 'math' || name === 'svg') {
+        // Not embedded (yet); keep a readable text stand-in for visible ones.
+        var text = isHidden(el, root) ? '' : placeholderText(el);
+        if (text) el.replaceWith(el.ownerDocument.createTextNode(text));
+        else el.remove();
+        return;
+      }
       if (el.namespaceURI !== XHTML_NS || DROP_ELEMENTS.has(name)) {
         el.remove();
         return;
@@ -358,6 +365,26 @@
     while (el.firstChild) replacement.appendChild(el.firstChild);
     el.replaceWith(replacement);
     return replacement;
+  }
+
+  // Text for a MathML formula (its TeX or alt text) or an inline SVG (its label).
+  function placeholderText(el) {
+    if (el.localName === 'math') {
+      var tex = el.querySelector('annotation[encoding="application/x-tex"]');
+      return cleanText(el.getAttribute('alttext')) || cleanText(tex && tex.textContent) || cleanText(el.textContent);
+    }
+    var title = el.querySelector('title');
+    var label = cleanText(el.getAttribute('aria-label')) || cleanText(title && title.textContent);
+    return label ? '[' + label + ']' : '';
+  }
+
+  // Hidden in the original markup (e.g. Wikipedia's MathML next to its fallback image).
+  function isHidden(el, root) {
+    for (var n = el; n && n !== root.parentNode; n = n.parentElement) {
+      if (n.hasAttribute('hidden') || n.getAttribute('aria-hidden') === 'true' ||
+          /display\s*:\s*none|visibility\s*:\s*hidden/i.test(n.getAttribute('style') || '')) return true;
+    }
+    return false;
   }
 
   function validAttr(name, value) {

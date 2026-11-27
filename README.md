@@ -31,7 +31,10 @@ Everything runs in your browser; nothing is uploaded.
 - Sites with a strict Content-Security-Policy block scripts from other origins, so the
   bookmarklet can't run there.
 - Cross-origin images without CORS headers can't be downloaded and are left out.
-- Inline SVG, video, audio and forms are removed.
+- Formulas (MathML) are replaced by their TeX or alt text, and inline SVG drawings by their
+  label (or removed if they have none).
+- Video, audio, iframes and forms are removed.
+- Images that take longer than 15 seconds to download are left out.
 
 ## Development
 
