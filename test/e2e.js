@@ -133,6 +133,7 @@ function check(ok, msg) {
     check(images.length === 4, '4 images embedded (got ' + images.length + ')');
     check(images.filter((n) => n.endsWith('.jpg')).length === 2 && images.filter((n) => n.endsWith('.png')).length === 2,
       'JPEG/PNG kept, WebP converted to JPEG, SVG converted to PNG');
+    check(/src="images\/img-001\.jpg"/.test((content.match(/<img[^>]*alt="Compact srcset"[^>]*>/) || [''])[0]), 'largest image picked from a compact srcset');
     check(images.every((n) => content.includes('src="' + n.replace('OEBPS/', '') + '"')), 'every image is referenced');
 
     check(opf.includes('<dc:title>The Quiet Art of Reading Long Articles</dc:title>'), 'title metadata');

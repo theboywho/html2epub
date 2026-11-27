@@ -223,18 +223,39 @@
   }
 
   function bestFromSrcset(srcset) {
-    if (!srcset) return null;
     var best = null;
     var bestScore = -1;
-    srcset.split(/,\s+/).forEach(function (part) {
-      var bits = part.trim().split(/\s+/);
-      if (!bits[0]) return;
-      var d = bits[1] || '1x';
-      var n = parseFloat(d) || 1;
-      var score = /w$/i.test(d) ? n : n * 1000;
-      if (score > bestScore) { best = bits[0]; bestScore = score; }
+    parseSrcset(srcset || '').forEach(function (c) {
+      var n = parseFloat(c.descriptor) || 1;
+      var score = /w$/i.test(c.descriptor) ? n : n * 1000;
+      if (score > bestScore) { best = c.url; bestScore = score; }
     });
     return best;
+  }
+
+  // Split a srcset into {url, descriptor} candidates, following the HTML spec's outline:
+  // a URL runs to the next whitespace (it may contain commas); a URL ending in a comma
+  // has no descriptor; otherwise the descriptor runs to the next comma.
+  function parseSrcset(s) {
+    var out = [];
+    var i = 0;
+    while (i < s.length) {
+      while (i < s.length && /[\s,]/.test(s[i])) i++;
+      if (i >= s.length) break;
+      var start = i;
+      while (i < s.length && !/\s/.test(s[i])) i++;
+      var url = s.slice(start, i);
+      var descriptor = '';
+      if (/,$/.test(url)) {
+        url = url.replace(/,+$/, '');
+      } else {
+        start = i;
+        while (i < s.length && s[i] !== ',') i++;
+        descriptor = s.slice(start, i).trim();
+      }
+      if (url) out.push({ url: url, descriptor: descriptor });
+    }
+    return out;
   }
 
   function sanitize(root) {
