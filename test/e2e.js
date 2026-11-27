@@ -41,6 +41,42 @@ function serve(dir, transform) {
   });
 }
 
+// Run the bookmarklet on a page and return the downloaded EPUB's contents.
+async function convert(page, code, url) {
+  await page.goto(url);
+  const before = await page.evaluate(() => Object.keys(window));
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 60000 }),
+    page.evaluate(code.slice('javascript:'.length))
+  ]);
+  const file = path.join(OUT, download.suggestedFilename());
+  await download.saveAs(file);
+  console.log('  saved ' + file);
+  const status = (await page.textContent('[role=status]')).trim();
+  await page.waitForTimeout(200); // let the converter finish cleaning up
+  const leftovers = await page.evaluate((before) => {
+    // A top-level function declaration (Readability) can't be deleted, only set to
+    // undefined, so count only new globals that still hold a value.
+    const added = Object.keys(window).filter((k) => before.indexOf(k) === -1 && window[k] !== undefined);
+    if (window.__messageListeners) added.push(window.__messageListeners + " 'message' listener(s)");
+    return added;
+  }, before);
+  const buf = fs.readFileSync(file);
+  const zip = await JSZip.loadAsync(buf);
+  const read = (n) => zip.file('OEBPS/' + n).async('string');
+  return {
+    file,
+    name: download.suggestedFilename(),
+    status,
+    leftovers,
+    mimetypeOk: buf.toString('latin1', 30, 38) === 'mimetype' && buf.readUInt16LE(8) === 0,
+    names: Object.keys(zip.files).filter((n) => !zip.files[n].dir).sort(),
+    content: await read('content.xhtml'),
+    opf: await read('content.opf'),
+    nav: await read('nav.xhtml')
+  };
+}
+
 const failures = [];
 function check(ok, msg) {
   console.log((ok ? '  ok   ' : '  FAIL ') + msg);
@@ -54,7 +90,17 @@ function check(ok, msg) {
   const browser = await chromium.launch();
   try {
     const context = await browser.newContext({ acceptDownloads: true });
+    // Record 'message' listeners added to window, to catch libraries leaving them behind.
+    await context.addInitScript(() => {
+      window.__messageListeners = 0;
+      const add = window.addEventListener;
+      window.addEventListener = function (type) {
+        if (type === 'message') window.__messageListeners++;
+        return add.apply(this, arguments);
+      };
+    });
     const page = await context.newPage();
+    const epubs = [];
     page.on('pageerror', (e) => failures.push('page error: ' + e.message));
 
     console.log('Install page');
@@ -63,30 +109,13 @@ function check(ok, msg) {
     check(code.startsWith('javascript:'), 'bookmarklet is a javascript: URL');
     check(code.includes(site.origin + '/src/html2epub.js'), 'bookmarklet points at this site');
 
-    console.log('Run bookmarklet on fixture');
-    await page.goto(site.origin + '/test/fixtures/article.html');
-    const [download] = await Promise.all([
-      page.waitForEvent('download', { timeout: 30000 }),
-      page.evaluate(code.slice('javascript:'.length))
-    ]);
-    const file = path.join(OUT, download.suggestedFilename());
-    await download.saveAs(file);
-    console.log('  saved ' + file);
-    check(download.suggestedFilename() === 'The Quiet Art of Reading Long Articles.epub', 'file name from title');
-    const statusText = await page.textContent('[role=status]');
-    check(/Downloaded/.test(statusText), 'status message: ' + statusText.trim());
-    const globals = await page.evaluate(() => [typeof window.JSZip, typeof window.define, typeof window.Readability]);
-    check(globals.every((t) => t === 'undefined'), 'no library globals left on the page (' + globals.join(', ') + ')');
-
-    console.log('EPUB contents');
-    const buf = fs.readFileSync(file);
-    check(buf.toString('latin1', 30, 38) === 'mimetype' && buf.readUInt16LE(8) === 0, 'mimetype is first and uncompressed');
-    const zip = await JSZip.loadAsync(buf);
-    const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir).sort();
-    console.log('  files: ' + names.join(', '));
-    const content = await zip.file('OEBPS/content.xhtml').async('string');
-    const opf = await zip.file('OEBPS/content.opf').async('string');
-    const nav = await zip.file('OEBPS/nav.xhtml').async('string');
+    console.log('Fixture: article.html');
+    const a = await convert(page, code, site.origin + '/test/fixtures/article.html');
+    check(a.name === 'The Quiet Art of Reading Long Articles.epub', 'file name from title');
+    check(/Downloaded/.test(a.status), 'status message: ' + a.status);
+    check(a.leftovers.length === 0, 'no globals or listeners left on the page' + (a.leftovers.length ? ' (' + a.leftovers.join(', ') + ')' : ''));
+    check(a.mimetypeOk, 'mimetype is first and uncompressed');
+    const { content, opf, nav, names } = a;
 
     check(content.includes('Reading long articles on a screen is tiring'), 'article text kept');
     check(!content.includes('Another article') && !content.includes('Privacy') && !content.includes('Subscribe'), 'site furniture removed');
@@ -108,16 +137,29 @@ function check(ok, msg) {
     check(opf.includes('<dc:language>en-GB</dc:language>'), 'language metadata');
     check(opf.includes('Ada Example'), 'author metadata');
     check(nav.includes('href="content.xhtml#notes"'), 'nav lists sections');
+    epubs.push(a.file);
+
+    console.log('Fixture: nested/edge-cases.html');
+    const e = await convert(page, code, site.origin + '/test/fixtures/nested/edge-cases.html');
+    check(/Downloaded/.test(e.status), 'status message: ' + e.status);
+    check(e.leftovers.length === 0, 'no globals or listeners left on the page' + (e.leftovers.length ? ' (' + e.leftovers.join(', ') + ')' : ''));
+    const amd = await page.evaluate(() => ({
+      define: typeof window.define, amd: !!(window.define && window.define.amd && window.define.amd.jQuery), modules: window.amdModules.length
+    }));
+    check(amd.define === 'function' && amd.amd, "page's AMD loader left intact");
+    check(amd.modules === 0, 'JSZip not registered with the AMD loader');
+    epubs.push(e.file);
 
     if (process.env.EPUBCHECK) {
       console.log('EPUBCheck');
-      try {
-        const out = execSync(process.env.EPUBCHECK + ' ' + JSON.stringify(file), { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-        console.log(out.trim().split('\n').map((l) => '  ' + l).join('\n'));
-        check(true, 'EPUBCheck passed');
-      } catch (e) {
-        console.log(((e.stdout || '') + (e.stderr || '')).trim());
-        check(false, 'EPUBCheck passed');
+      for (const file of epubs) {
+        try {
+          execSync(process.env.EPUBCHECK + ' ' + JSON.stringify(file), { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+          check(true, 'valid: ' + path.basename(file));
+        } catch (err) {
+          console.log(((err.stdout || '') + (err.stderr || '')).trim());
+          check(false, 'valid: ' + path.basename(file));
+        }
       }
     } else {
       console.log('(Set EPUBCHECK to also validate with EPUBCheck.)');

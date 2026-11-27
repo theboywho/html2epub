@@ -46,13 +46,17 @@
 
   var status = createStatus();
 
+  // Page globals we change while running; each is put back afterwards.
+  var restoreGlobals = [];
+
   run()
     .catch(function (err) {
       console.error('html2epub:', err);
       status.error(err && err.message ? err.message : String(err));
     })
     .then(function () {
-      window.__html2epubRunning = false;
+      restoreAll(restoreGlobals);
+      try { delete window.__html2epubRunning; } catch (e) { window.__html2epubRunning = undefined; }
     });
 
   async function run() {
@@ -106,33 +110,85 @@
   // Library loading
 
   async function loadLibraries() {
-    // Hide AMD loaders and keep any page globals of the same name, so the UMD
-    // bundles attach to window and the page is left as we found it.
-    var names = ['define', 'Readability', 'JSZip'];
-    var saved = {};
-    names.forEach(function (n) {
-      saved[n] = { had: Object.prototype.hasOwnProperty.call(window, n), value: window[n] };
-    });
-    window.define = undefined;
+    // JSZip calls a global setImmediate and, if there is none, installs a polyfill that
+    // adds window globals and a permanent 'message' listener. Provide our own (removed
+    // when we finish) so the polyfill never installs itself.
+    if (typeof window.setImmediate !== 'function') {
+      var shim = setImmediateShim();
+      setGlobal(restoreGlobals, window, 'setImmediate', shim.setImmediate);
+      setGlobal(restoreGlobals, window, 'clearImmediate', shim.clearImmediate);
+      restoreGlobals.push({ restore: shim.close });
+    }
+
+    // The libraries attach to window; capture them, then put back whatever the page had.
+    var libGlobals = [];
+    setGlobal(libGlobals, window, 'Readability', undefined);
+    setGlobal(libGlobals, window, 'JSZip', undefined);
     try {
       await loadScript(new URL('vendor/readability/Readability.js', BASE).href);
-      await loadScript(new URL('vendor/jszip/jszip.min.js', BASE).href);
+      // JSZip's UMD wrapper registers with an AMD loader if the page has one (RequireJS
+      // etc.). Hide only define.amd, and only while JSZip loads, so the page's own
+      // define() keeps working.
+      var amd = [];
+      if (typeof window.define === 'function' && window.define.amd) setGlobal(amd, window.define, 'amd', undefined);
+      try {
+        await loadScript(new URL('vendor/jszip/jszip.min.js', BASE).href);
+      } finally {
+        restoreAll(amd);
+      }
       var libs = { Readability: window.Readability, JSZip: window.JSZip };
       if (typeof libs.Readability !== 'function' || typeof libs.JSZip !== 'function') {
         throw new Error('Libraries failed to initialise on this page.');
       }
       return libs;
     } finally {
-      names.forEach(function (n) {
-        try {
-          if (saved[n].had) window[n] = saved[n].value;
-          else delete window[n];
-        } catch (e) {
-          // Non-configurable global (e.g. a top-level function declaration): just clear it.
-          try { window[n] = undefined; } catch (e2) { /* leave it */ }
-        }
-      });
+      restoreAll(libGlobals);
     }
+  }
+
+  // Set obj[name], remembering how to undo it.
+  function setGlobal(list, obj, name, value) {
+    var had = Object.prototype.hasOwnProperty.call(obj, name);
+    var old = obj[name];
+    list.push({
+      restore: function () {
+        try {
+          if (had) obj[name] = old;
+          else delete obj[name];
+        } catch (e) {
+          // Non-configurable (e.g. a top-level function declaration): just clear it.
+          try { obj[name] = undefined; } catch (e2) { /* leave it */ }
+        }
+      }
+    });
+    obj[name] = value;
+  }
+
+  function restoreAll(list) {
+    while (list.length) list.pop().restore();
+  }
+
+  // A small setImmediate built on a private MessageChannel (no page-wide listeners).
+  function setImmediateShim() {
+    var channel = new MessageChannel();
+    var tasks = new Map();
+    var next = 1;
+    channel.port1.onmessage = function (e) {
+      var task = tasks.get(e.data);
+      if (!task) return;
+      tasks.delete(e.data);
+      task.fn.apply(null, task.args);
+    };
+    return {
+      setImmediate: function (fn) {
+        var id = next++;
+        tasks.set(id, { fn: fn, args: Array.prototype.slice.call(arguments, 1) });
+        channel.port2.postMessage(id);
+        return id;
+      },
+      clearImmediate: function (id) { tasks.delete(id); },
+      close: function () { channel.port1.close(); channel.port2.close(); tasks.clear(); }
+    };
   }
 
   function loadScript(src) {
