@@ -137,6 +137,9 @@ function check(ok, msg) {
     check(opf.includes('<dc:language>en-GB</dc:language>'), 'language metadata');
     check(opf.includes('Ada Example'), 'author metadata');
     check(nav.includes('href="content.xhtml#notes"'), 'nav lists sections');
+    check(content.includes('<h2 id="2024-update">') && content.includes('id="fn:1"'), 'unusual ids kept');
+    check(['#fn:1', '#fnref:1', '#2024-update', '#odd(id)%25'].every((f) => content.includes('href="' + f + '"')), 'links to unusual ids kept as internal links');
+    check(nav.includes('href="content.xhtml#2024-update"'), 'nav links to heading with unusual id');
     epubs.push(a.file);
 
     console.log('Fixture: nested/edge-cases.html');

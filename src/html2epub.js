@@ -294,7 +294,7 @@
     root.querySelectorAll('h2').forEach(function (h) {
       var text = cleanText(h.textContent);
       if (!text) return;
-      if (!h.id || !/^[A-Za-z_][\w.-]*$/.test(h.id)) {
+      if (!h.id) {
         var id;
         do { id = 'section-' + (++n); } while (root.ownerDocument.getElementById(id) || root.querySelector('#' + id));
         h.id = id;
@@ -313,7 +313,7 @@
       try { url = new URL(a.getAttribute('href'), location.href); } catch (e) { a.removeAttribute('href'); return; }
       if (url.hash && url.href.split('#')[0] === page) {
         var target = safeDecode(url.hash.slice(1));
-        if (ids.has(target) && /^[\w.:-]+$/.test(target)) { a.setAttribute('href', '#' + target); return; }
+        if (ids.has(target)) { a.setAttribute('href', fragment(target)); return; }
       }
       if (/^(https?|mailto):$/.test(url.protocol)) a.setAttribute('href', url.href);
       else a.removeAttribute('href');
@@ -491,7 +491,7 @@
 
   function ncx(meta, headings) {
     var points = [{ text: meta.title, src: 'content.xhtml' }].concat(headings.map(function (h) {
-      return { text: h.text, src: 'content.xhtml#' + h.id };
+      return { text: h.text, src: 'content.xhtml' + fragment(h.id) };
     }));
     return '<?xml version="1.0" encoding="UTF-8"?>\n' +
       '<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">\n' +
@@ -525,7 +525,7 @@
       var sub = x.el('ol');
       headings.forEach(function (hd) {
         var item = x.el('li');
-        item.appendChild(x.link('content.xhtml#' + hd.id, hd.text));
+        item.appendChild(x.link('content.xhtml' + fragment(hd.id), hd.text));
         sub.appendChild(item);
       });
       li.appendChild(sub);
@@ -682,6 +682,11 @@
 
   function hostOf(url) {
     try { return new URL(url).hostname; } catch (e) { return url; }
+  }
+
+  // '#id' as a URL fragment; ids can contain characters that need escaping in URLs.
+  function fragment(id) {
+    return '#' + encodeURI(id).replace(/#/g, '%23');
   }
 
   function safeDecode(s) {
