@@ -31,8 +31,10 @@ Rules for AI coding agents (and humans) working in this repository.
    - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
    - Breaking changes: add `!` after the type/scope and a `BREAKING CHANGE:` footer.
    - Examples: `feat(bookmarklet): add loader`, `docs: update README`, `chore(vendor): add library`
-5. **Fill in the PR template** (`.github/pull_request_template.md`) for every PR.
-6. **Branch names** should be short and descriptive, e.g. `feat/bookmarklet-loader`,
+5. **Keep PRs specific.** One concern per PR. Unrelated work (even small) goes on a new branch
+   with its own PR; stack a branch on another PR's branch if it depends on it.
+6. **Fill in the PR template** (`.github/pull_request_template.md`) for every PR.
+7. **Branch names** should be short and descriptive, e.g. `feat/bookmarklet-loader`,
    `fix/image-encoding`, `docs/agents`.
 
 ## Code guidelines
