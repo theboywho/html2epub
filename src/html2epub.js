@@ -15,6 +15,7 @@
   // Site root: one level up from src/html2epub.js (query string is dropped).
   var BASE = script && script.src ? new URL('..', script.src).href : FALLBACK_BASE;
 
+  var IMAGE_TIMEOUT_MS = 15000;
   var XHTML_NS = 'http://www.w3.org/1999/xhtml';
   var XML_NS = 'http://www.w3.org/XML/1998/namespace';
   var OPS_NS = 'http://www.idpf.org/2007/ops';
@@ -366,18 +367,31 @@
   }
 
   async function fetchImage(url) {
+    // Give up on an image that takes too long, so one slow server can't stall the book.
+    var controller = new AbortController();
+    var timer;
+    var timeout = new Promise(function (resolve, reject) {
+      timer = setTimeout(function () {
+        controller.abort();
+        reject(new Error('Timed out after ' + IMAGE_TIMEOUT_MS / 1000 + 's'));
+      }, IMAGE_TIMEOUT_MS);
+    });
     try {
-      var res = await fetch(url);
-      if (!res.ok) return null;
-      var buf = await res.arrayBuffer();
-      var type = sniffImageType(new Uint8Array(buf));
-      if (type) return { data: buf, type: type, ext: type === 'image/jpeg' ? 'jpg' : type.split('/')[1] };
-      // Other formats (WebP, AVIF, SVG…) are converted for wider reader support.
-      var mime = (res.headers.get('content-type') || '').split(';')[0].trim();
-      return await rasterize(new Blob([buf], { type: mime }), /svg/i.test(mime));
+      return await Promise.race([timeout, (async function () {
+        var res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) return null;
+        var buf = await res.arrayBuffer();
+        var type = sniffImageType(new Uint8Array(buf));
+        if (type) return { data: buf, type: type, ext: type === 'image/jpeg' ? 'jpg' : type.split('/')[1] };
+        // Other formats (WebP, AVIF, SVG…) are converted for wider reader support.
+        var mime = (res.headers.get('content-type') || '').split(';')[0].trim();
+        return await rasterize(new Blob([buf], { type: mime }), /svg/i.test(mime));
+      })()]);
     } catch (e) {
       console.warn('html2epub: could not embed image', url, e);
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   }
 

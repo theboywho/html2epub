@@ -28,7 +28,9 @@ const TYPES = {
 function serve(dir, transform) {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
-      const file = path.join(dir, decodeURIComponent(new URL(req.url, 'http://x').pathname));
+      const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+      if (pathname === '/hang.png') return; // never answers, like a stalled image server
+      const file = path.join(dir, pathname);
       if (!file.startsWith(dir) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
         res.writeHead(404).end('not found');
         return;
@@ -43,7 +45,7 @@ function serve(dir, transform) {
 
 // Run the bookmarklet on a page and return the downloaded EPUB's contents.
 async function convert(page, code, url) {
-  await page.goto(url);
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
   const before = await page.evaluate(() => Object.keys(window));
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 60000 }),
@@ -151,6 +153,7 @@ function check(ok, msg) {
     }));
     check(amd.define === 'function' && amd.amd, "page's AMD loader left intact");
     check(amd.modules === 0, 'JSZip not registered with the AMD loader');
+    check(e.content.includes('[Stalled image]'), 'image that never loads is skipped after a timeout');
     epubs.push(e.file);
 
     if (process.env.EPUBCHECK) {
@@ -169,8 +172,10 @@ function check(ok, msg) {
     }
   } finally {
     await browser.close();
-    site.server.close();
-    other.server.close();
+    for (const s of [site.server, other.server]) {
+      s.closeAllConnections();
+      s.close();
+    }
   }
 
   console.log(failures.length ? '\n' + failures.length + ' failure(s)' : '\nAll checks passed');

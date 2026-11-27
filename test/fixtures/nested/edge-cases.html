@@ -15,6 +15,7 @@
     <h1>Edge Cases for the Converter</h1>
     <p>This page exercises situations that real sites produce and that previously broke the converter or the page it ran on. It has enough text for Readability to treat it as an article rather than a fragment of navigation or boilerplate.</p>
     <p>The page defines a fake AMD loader. The converter must not register JSZip with it, and must leave both the loader function and its amd flag in place afterwards, so the site's own modules keep working.</p>
+    <p><img src="/hang.png" alt="Stalled image"> The image before this sentence comes from a server that never answers. The converter must give up on it after a timeout and still produce the book.</p>
     <p>Finally, this paragraph has more prose so that the article is comfortably long enough to be picked up by the extraction step, which looks at the amount of text, the number of commas, and the density of links within each candidate block.</p>
   </article>
 </body>
